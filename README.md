@@ -8,6 +8,8 @@ This project is a simple Higher Order Component wrapper around Promises in React
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [Advanced usage](#advanced-usage)
+  - [Using middlewares](#using-middlewares)
+  - [Updating response data](#updating-response-data)
 - [API reference](#api-reference)
 - [Examples](#examples)
 
