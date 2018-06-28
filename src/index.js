@@ -1,83 +1,68 @@
 import React from "react";
 
 export default (key, fn, propsToMiddleware = () => x => x) => Component =>
-  class extends React.Component {
-    constructor(props) {
-      super(props);
+  ReactPromisify;
 
-      state = {};
+class ReactPromisify extends React.Component {
+  constructor(props) {
+    super(props);
 
-      this.callPromise = propsToMiddleware(props)(fn);
-    }
+    state = {};
 
-    onRequest() {
-      this.setState({ isFetching: true });
-    }
+    this.callPromise = propsToMiddleware(props)(fn);
 
-    onSuccess(result) {
-      this.setState({
-        isFetching: false,
-        lastUpdated: Date.now(),
-        data: result,
-        error: void 0
-      });
-    }
-
-    onFailure(err) {
-      this.setState({
-        isFetching: false,
-        error: err
-      });
-    }
-
-    update(fn) {
-      this.setState(state => ({
-        ...state,
-        data: fn(state.data)
-      }));
-    }
-
-    async fetch(...args) {
-      this.onRequest();
-      try {
-        const result = await this.callPromise(...args);
-        this.onSuccess(result);
-        return result;
-      } catch (err) {
-        this.onFailure(err);
-        throw err;
-      }
-    }
-
-    render() {
-      return (
-        <Component
-          {...{
-            [key]: {
-              ...this.state,
-              fetch: ::this.fetch
-            }
-          }}
-        />
-      );
-    }
-  };
-
-export const onSuccess = cb => next => async (...args) => {
-  try {
-    const result = await next(...args);
-    cb(result, args);
-    return result;
-  } catch (err) {
-    throw err;
+    this.fetch = this.fetch.bind(this);
   }
-};
 
-export const onFailure = cb => next => async (...args) => {
-  try {
-    return await next(...args);
-  } catch (err) {
-    cb(err, args);
-    throw err;
+  onRequest() {
+    this.setState({ isFetching: true });
   }
-};
+
+  onSuccess(result) {
+    this.setState({
+      isFetching: false,
+      lastUpdated: Date.now(),
+      data: result,
+      error: void 0
+    });
+  }
+
+  onFailure(err) {
+    this.setState({
+      isFetching: false,
+      error: err
+    });
+  }
+
+  update(fn) {
+    this.setState(state => ({
+      ...state,
+      data: fn(state.data)
+    }));
+  }
+
+  async fetch(...args) {
+    this.onRequest();
+    try {
+      const result = await this.callPromise(...args);
+      this.onSuccess(result);
+      return result;
+    } catch (err) {
+      this.onFailure(err);
+      throw err;
+    }
+  }
+
+  render() {
+    return (
+      <Component
+        {...{
+          [key]: {
+            ...this.state,
+            fetch: this.fetch
+          }
+        }}
+      />
+    );
+  }
+}
