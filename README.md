@@ -10,8 +10,8 @@ This project is a simple Higher Order Component wrapper around Promises in React
 - [Advanced usage](#advanced-usage)
   - [Using middlewares](#using-middlewares)
   - [Updating response data](#updating-response-data)
+  - [Custom `withPromise` instances](#)
   - [Error handling](#error-handling)
-  - [Making generic actions](#)
   - [Combining with Context api](#combining-with-context-api)
 - [API reference](#api-reference)
 - [Examples](#examples)
@@ -35,9 +35,9 @@ npm install react-promisify --save
 ```
 
 ## Getting started
-Your component needs to be decorated by `withPromise` HOC in order to be able fetch the data and have an access to it.
+Your component needs to be decorated by `withPromise` HOC in order to be able fetch the data and have an access to it. It accepts the name of the prop, containing response state as the first argument and a function, which returns Promise as a second.
 
-Once you call `this.props.movies.fetch()`, your Promise function will be envoked and updated state variables will be passed into the component.
+Once you call `this.props.movies.fetch()`, your Promise function will be envoked and updated state variables will be passed into the component. Parameters, passed to `fetch()` method, will be automatically provided to your custom Promise function.
 
 When request is in progress and not finished yet - `isFetching` variable will be equal to `true`.
 After request will be fetched, you'll get the response in `data` variable and timestamp of the request as `lastUpdated` value.
@@ -48,7 +48,7 @@ After request will be fetched, you'll get the response in `data` variable and ti
 
   class Movies extends React.Component {
     componentDidMount() {
-      this.props.movies.fetch()
+      this.props.movies.fetch("comedy")
     }
 
     render() {
@@ -64,7 +64,11 @@ After request will be fetched, you'll get the response in `data` variable and ti
     }
   }
 
-  const DecoratedMovies = withPromise("movies", fetchMovies)(Movies)
+  const fetchMovies = (category) =>
+    fetch(`http://your-amazing-api.com/movies/${category}`)
+      .then(res => res.json())
+
+  const DecoratedMovies = withPromise("movies", fetchMovies)(Movies);
 ```
 
 ## Advanced usage
@@ -80,9 +84,9 @@ It accepts `next` Promise function in the middleware chain as an input and retur
 The simple logger middleware will look as the following:
 ```javascript
 const logger = (next) => (...args) => {
-  console.log("Request was started with:", args);
+  console.log("Request was started with these arguments:", args);
   return next(...args).then(res => {
-    console.log("Request was finished with:", args);
+    console.log("Request was finished with:", res);
     return err;
   }).catch(err => {
     console.log("Request was failed with:", err);
@@ -101,7 +105,7 @@ Out of the box, the library is coming with `onSuccess`, `onFailure` and `provide
 ```javascript
 import { compose } from 'ramda';
 
-withPromise("movies", fetchMovies, props => compose(
+export default withPromise("movies", fetchMovies, props => compose(
   provideRequest(() => [props.userId]),
   onSuccess(() => {
     console.log("Request was succeded");
@@ -109,6 +113,21 @@ withPromise("movies", fetchMovies, props => compose(
   onFailure(() => {
     console.log("Request was failed");
   })
-));
+))(Movies);
 ```
 In the example above, `compose` function from [Ramda](https://ramdajs.com/docs/#compose) is used for combining multiple middlewares into a single one.
+
+### Updating response data
+Most likely, in a complex cases you will need to update fetched data state in response to some actions in future. For example, when new movie is created, you will want to update its list.
+For that case, `.update()` method of the provided request prop should be used:
+```javascript
+import { compose } from 'ramda';
+
+export default compose(
+  withPromise("fetchMovies", fetchMovies),
+  withPromise("createMovie", createMovie, props => onSuccess(movie => {
+    props.update(movies => [...movies, movie]);
+  }))
+)(Movies);
+```
+`compose` function, from that example serves the same purpose - composing multiple HOC's into a new one.
