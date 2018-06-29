@@ -34,7 +34,7 @@ Or with `npm`:
 npm install react-promisify --save
 ```
 
-# Getting started
+## Getting started
 Your component needs to be decorated by `withPromise` HOC in order to be able fetch the data and have an access to it.
 
 Once you call `this.props.movies.fetch()`, your Promise function will be envoked and updated state variables will be passed into the component.
@@ -66,3 +66,49 @@ After request will be fetched, you'll get the response in `data` variable and ti
 
   const DecoratedMovies = withPromise("movies", fetchMovies)(Movies)
 ```
+
+## Advanced usage
+### Using middlewares
+Middlewares are useful when you need to hook up into the request/response lifecycle, make some actions before or after the response finished.
+
+Basic middleware function is having the following signature:
+```javascript
+(next) => (...args) => {}
+```
+It accepts `next` Promise function in the middleware chain as an input and returns new Promise function, which will be passed to the next middleware. Returned function, will take the same arguments as your initial data fetching call.
+
+The simple logger middleware will look as the following:
+```javascript
+const logger = (next) => (...args) => {
+  console.log("Request was started with:", args);
+  return next(...args).then(res => {
+    console.log("Request was finished with:", args);
+    return err;
+  }).catch(err => {
+    console.log("Request was failed with:", err);
+    throw err;
+  });
+}
+```
+
+It could be applied by returning it from the function, passed at the 3rd argument of the HOC:
+```javascript
+withPromise("movies", fetchMovies, props => logger);
+```
+
+Out of the box, the library is coming with `onSuccess`, `onFailure` and `provideRequest` middlewares.
+> Refer to the [API reference](#api-reference) for detailed information regarding each one.
+```javascript
+import { compose } from 'ramda';
+
+withPromise("movies", fetchMovies, props => compose(
+  provideRequest(() => [props.userId]),
+  onSuccess(() => {
+    console.log("Request was succeded");
+  }),
+  onFailure(() => {
+    console.log("Request was failed");
+  })
+));
+```
+In the example above, `compose` function from [Ramda](https://ramdajs.com/docs/#compose) is used for combining multiple middlewares into a single one.
