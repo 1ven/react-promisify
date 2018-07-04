@@ -133,3 +133,6 @@ export default compose(
 `compose` function, from that example serves the same purpose - composing multiple HOC's into a new one.
 
 ### Error handling
+
+### Roadmap
+- Default value support
