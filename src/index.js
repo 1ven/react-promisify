@@ -1,68 +1,76 @@
 import React from "react";
 
-export default (key, fn, propsToMiddleware = () => x => x) => Component =>
-  ReactPromisify;
+export const fetch = () => {};
 
-class ReactPromisify extends React.Component {
-  constructor(props) {
-    super(props);
+export const withPromise = (
+  key,
+  fn,
+  propsToMiddleware = () => x => x
+) => Component => {
+  class ReactPromisify extends React.Component {
+    constructor(props) {
+      super(props);
 
-    state = {};
+      this.state = {};
 
-    this.callPromise = propsToMiddleware(props)(fn);
+      this.fetch = this.fetch.bind(this);
+    }
 
-    this.fetch = this.fetch.bind(this);
-  }
+    onRequest() {
+      this.setState({ isFetching: true });
+    }
 
-  onRequest() {
-    this.setState({ isFetching: true });
-  }
+    onSuccess(result) {
+      this.setState({
+        isFetching: false,
+        lastUpdated: Date.now(),
+        data: result,
+        error: void 0
+      });
+    }
 
-  onSuccess(result) {
-    this.setState({
-      isFetching: false,
-      lastUpdated: Date.now(),
-      data: result,
-      error: void 0
-    });
-  }
+    onFailure(err) {
+      this.setState({
+        isFetching: false,
+        error: err
+      });
+    }
 
-  onFailure(err) {
-    this.setState({
-      isFetching: false,
-      error: err
-    });
-  }
+    update(fn) {
+      this.setState(state => ({
+        ...state,
+        data: fn(state.data)
+      }));
+    }
 
-  update(fn) {
-    this.setState(state => ({
-      ...state,
-      data: fn(state.data)
-    }));
-  }
+    async fetch(...args) {
+      const callPromise = propsToMiddleware(this.props)(fn);
 
-  async fetch(...args) {
-    this.onRequest();
-    try {
-      const result = await this.callPromise(...args);
-      this.onSuccess(result);
-      return result;
-    } catch (err) {
-      this.onFailure(err);
-      throw err;
+      this.onRequest();
+      try {
+        const result = await callPromise(...args);
+        this.onSuccess(result);
+        return result;
+      } catch (err) {
+        this.onFailure(err);
+        throw err;
+      }
+    }
+
+    render() {
+      return (
+        <Component
+          {...this.props}
+          {...{
+            [key]: {
+              ...this.state,
+              fetch: this.fetch
+            }
+          }}
+        />
+      );
     }
   }
 
-  render() {
-    return (
-      <Component
-        {...{
-          [key]: {
-            ...this.state,
-            fetch: this.fetch
-          }
-        }}
-      />
-    );
-  }
-}
+  return ReactPromisify;
+};
