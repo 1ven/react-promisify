@@ -10,8 +10,8 @@ This project is a simple Higher Order Component wrapper around Promises in React
 - [Advanced usage](#advanced-usage)
   - [Using middlewares](#using-middlewares)
   - [Updating response data](#updating-response-data)
-  - [Custom `withPromise` instances](#)
   - [Error handling](#error-handling)
+  - [Caching](#caching)
   - [Combining with Context api](#combining-with-context-api)
 - [API reference](#api-reference)
 - [Examples](#examples)
@@ -131,3 +131,5 @@ export default compose(
 )(Movies);
 ```
 `compose` function, from that example serves the same purpose - composing multiple HOC's into a new one.
+
+### Error handling
