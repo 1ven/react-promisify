@@ -1,11 +1,14 @@
 import React from "react";
 
+const identity = x => x;
+
 export const fetch = () => {};
 
 export const withPromise = (
   key,
   fn,
-  propsToMiddleware = () => x => x
+  propsToMiddleware = () => identity,
+  propsToMapState = () => identity
 ) => Component => {
   class ReactPromisify extends React.Component {
     constructor(props) {
@@ -14,6 +17,7 @@ export const withPromise = (
       this.state = {};
 
       this.fetch = this.fetch.bind(this);
+      this.update = this.update.bind(this);
     }
 
     onRequest() {
@@ -37,18 +41,21 @@ export const withPromise = (
     }
 
     update(fn) {
+      const mapState = propsToMapState(this.props);
+
       this.setState(state => ({
         ...state,
-        data: fn(state.data)
+        data: mapState(fn(state.data))
       }));
     }
 
     async fetch(...args) {
       const callPromise = propsToMiddleware(this.props)(fn);
+      const mapState = propsToMapState(this.props);
 
       this.onRequest();
       try {
-        const result = await callPromise(...args);
+        const result = mapState(await callPromise(...args));
         this.onSuccess(result);
         return result;
       } catch (err) {
@@ -64,7 +71,8 @@ export const withPromise = (
           {...{
             [key]: {
               ...this.state,
-              fetch: this.fetch
+              fetch: this.fetch,
+              update: this.update
             }
           }}
         />
