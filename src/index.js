@@ -16,8 +16,12 @@ export const withPromise = (
 
       this.state = {};
 
+      this.cancellations = {};
+      this.nextRequestIndex = 0;
+
       this.fetch = this.fetch.bind(this);
       this.update = this.update.bind(this);
+      this.cancel = this.cancel.bind(this);
     }
 
     onRequest() {
@@ -50,7 +54,18 @@ export const withPromise = (
     }
 
     async fetch(...args) {
-      const callPromise = propsToMiddleware(this.props)(fn);
+      const index = this.nextRequestIndex;
+      this.nextRequestIndex = this.nextRequestIndex + 1;
+
+      const callPromise = propsToMiddleware(this.props)(async (...args) => {
+        const promise = fn(...args);
+
+        if (promise.cancel) {
+          this.cancellations[index] = promise.cancel;
+        }
+
+        return promise;
+      });
       const mapState = propsToMapState(this.props);
 
       this.onRequest();
@@ -61,6 +76,14 @@ export const withPromise = (
       } catch (err) {
         this.onFailure(err);
         throw err;
+      } finally {
+        delete this.cancellations[index];
+      }
+    }
+
+    cancel() {
+      for (let index of Object.keys(this.cancellations)) {
+        this.cancellations[index]();
       }
     }
 
@@ -72,7 +95,8 @@ export const withPromise = (
             [key]: {
               ...this.state,
               fetch: this.fetch,
-              update: this.update
+              update: this.update,
+              cancel: this.cancel
             }
           }}
         />
