@@ -45,11 +45,9 @@ export const withPromise = (
     }
 
     update(fn) {
-      const mapState = propsToMapState(this.props);
-
       this.setState(state => ({
         ...state,
-        data: mapState(fn(state.data))
+        data: fn(state.data)
       }));
     }
 
@@ -66,11 +64,10 @@ export const withPromise = (
 
         return promise;
       });
-      const mapState = propsToMapState(this.props);
 
       this.onRequest();
       try {
-        const result = mapState(await callPromise(...args));
+        const result = await callPromise(...args);
         this.onSuccess(result);
         return result;
       } catch (err) {
@@ -94,6 +91,9 @@ export const withPromise = (
           {...{
             [key]: {
               ...this.state,
+              data:
+                this.state.lastUpdated &&
+                propsToMapState(this.props)(this.state.data),
               fetch: this.fetch,
               update: this.update,
               cancel: this.cancel

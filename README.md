@@ -13,6 +13,7 @@ This project is a simple Higher Order Component wrapper around Promises in React
   - [Transforming server response](#transforming-server-response)
   - [Error handling](#error-handling)
   - [Canceling requests](#canceling-requests)
+  - [Lazy loading](#lazy-loading)
   - [Caching](#caching)
   - [Combining with Context api](#combining-with-context-api)
 - [API reference](#api-reference)
