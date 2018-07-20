@@ -8,13 +8,15 @@ export const withPromise = (
   key,
   fn,
   propsToMiddleware = () => identity,
-  propsToStructure = () => (input, fn, state) => fn(state)
+  propsToStructure = () => (input, fn, info) => fn(info)
 ) => Component => {
   class ReactPromisify extends React.Component {
     constructor(props) {
       super(props);
 
-      this.state = {};
+      this.state = {
+        info: {}
+      };
 
       this.cancellations = {};
       this.nextRequestIndex = 0;
@@ -22,19 +24,20 @@ export const withPromise = (
       this.fetch = this.fetch.bind(this);
       this.update = this.update.bind(this);
       this.cancel = this.cancel.bind(this);
+      this.reset = this.reset.bind(this);
     }
 
     updateState(input, itemState) {
-      this.setState(state =>
-        propsToStructure(this.props)(
+      this.setState(state => ({
+        info: propsToStructure(this.props)(
           input,
           item => ({
             ...item,
             ...itemState
           }),
-          state
+          state.info
         )
-      );
+      }));
     }
 
     onRequest(input) {
@@ -58,7 +61,13 @@ export const withPromise = (
     }
 
     update(fn, path = []) {
-      this.setState(state => updateObject(fn, [...path, "data"], state));
+      this.setState(state => ({
+        info: updateObject(fn, [...path, "data"], state.info)
+      }));
+    }
+
+    reset(callback) {
+      this.setState({ info: {} }, callback);
     }
 
     cancel() {
@@ -71,17 +80,15 @@ export const withPromise = (
       const index = this.nextRequestIndex;
       this.nextRequestIndex = this.nextRequestIndex + 1;
 
-      const callPromise = propsToMiddleware(this.props, this.state.data)(
-        async (...args) => {
-          const promise = fn(...args);
+      const callPromise = propsToMiddleware(this.props)(async (...args) => {
+        const promise = fn(...args);
 
-          if (promise.cancel) {
-            this.cancellations[index] = promise.cancel;
-          }
-
-          return promise;
+        if (promise.cancel) {
+          this.cancellations[index] = promise.cancel;
         }
-      );
+
+        return promise;
+      });
 
       this.onRequest(input);
       try {
@@ -102,10 +109,11 @@ export const withPromise = (
           {...this.props}
           {...{
             [key]: {
-              ...this.state,
+              ...this.state.info,
               update: this.update,
               cancel: this.cancel,
-              fetch: this.fetch
+              fetch: this.fetch,
+              reset: this.reset
             }
           }}
         />
