@@ -8,7 +8,7 @@ export const withPromise = (
   key,
   fn,
   propsToMiddleware = () => identity,
-  propsToMapState = () => identity
+  propsToStructure = () => (input, fn, state) => fn(state)
 ) => Component => {
   class ReactPromisify extends React.Component {
     constructor(props) {
@@ -24,12 +24,25 @@ export const withPromise = (
       this.cancel = this.cancel.bind(this);
     }
 
-    onRequest() {
-      this.setState({ isFetching: true });
+    updateState(input, itemState) {
+      this.setState(state =>
+        propsToStructure(this.props)(
+          input,
+          item => ({
+            ...item,
+            ...itemState
+          }),
+          state
+        )
+      );
     }
 
-    onSuccess(result) {
-      this.setState({
+    onRequest(input) {
+      this.updateState(input, { isFetching: true });
+    }
+
+    onSuccess(input, result) {
+      this.updateState(input, {
         isFetching: false,
         lastUpdated: Date.now(),
         data: result,
@@ -37,50 +50,49 @@ export const withPromise = (
       });
     }
 
-    onFailure(err) {
-      this.setState({
+    onFailure(input, err) {
+      this.updateState(input, {
         isFetching: false,
         error: err
       });
     }
 
-    update(fn) {
-      this.setState(state => ({
-        ...state,
-        data: fn(state.data)
-      }));
-    }
-
-    async fetch(...args) {
-      const index = this.nextRequestIndex;
-      this.nextRequestIndex = this.nextRequestIndex + 1;
-
-      const callPromise = propsToMiddleware(this.props)(async (...args) => {
-        const promise = fn(...args);
-
-        if (promise.cancel) {
-          this.cancellations[index] = promise.cancel;
-        }
-
-        return promise;
-      });
-
-      this.onRequest();
-      try {
-        const result = await callPromise(...args);
-        this.onSuccess(result);
-        return result;
-      } catch (err) {
-        this.onFailure(err);
-        throw err;
-      } finally {
-        delete this.cancellations[index];
-      }
+    update(fn, path = []) {
+      this.setState(state => updateObject(fn, [...path, "data"], state));
     }
 
     cancel() {
       for (let index of Object.keys(this.cancellations)) {
         this.cancellations[index]();
+      }
+    }
+
+    async fetch(...input) {
+      const index = this.nextRequestIndex;
+      this.nextRequestIndex = this.nextRequestIndex + 1;
+
+      const callPromise = propsToMiddleware(this.props, this.state.data)(
+        async (...args) => {
+          const promise = fn(...args);
+
+          if (promise.cancel) {
+            this.cancellations[index] = promise.cancel;
+          }
+
+          return promise;
+        }
+      );
+
+      this.onRequest(input);
+      try {
+        const result = await callPromise(...input);
+        this.onSuccess(input, result);
+        return result;
+      } catch (err) {
+        this.onFailure(input, err);
+        throw err;
+      } finally {
+        delete this.cancellations[index];
       }
     }
 
@@ -91,12 +103,9 @@ export const withPromise = (
           {...{
             [key]: {
               ...this.state,
-              data:
-                this.state.lastUpdated &&
-                propsToMapState(this.props)(this.state.data),
-              fetch: this.fetch,
               update: this.update,
-              cancel: this.cancel
+              cancel: this.cancel,
+              fetch: this.fetch
             }
           }}
         />
@@ -105,4 +114,20 @@ export const withPromise = (
   }
 
   return ReactPromisify;
+};
+
+const updateObject = (updater, path, obj) => {
+  let newObj = Object.assign({}, obj);
+  let newObjRef = newObj;
+  let stack = path.slice(0);
+
+  while (stack.length > 1) {
+    newObjRef = newObjRef[stack.shift()];
+  }
+
+  const key = stack.shift();
+
+  newObjRef[key] = updater(newObjRef[key]);
+
+  return newObj;
 };
